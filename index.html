@@ -15,7 +15,7 @@
 </head>
 <body>
   <canvas id="scene" aria-hidden="true"></canvas>
-  <div id="tip" class="tip" hidden></div>
+  <div id="cross" class="cross" aria-hidden="true" hidden><i class="cx"></i><i class="cy"></i><b></b></div>
 
   <header class="nav">
     <a class="brand" href="#top">
@@ -26,7 +26,7 @@
       <a href="#how">How it works</a>
       <a href="#inside">Inside the app</a>
       <a href="#reviews">Reviews</a>
-      <a class="btn btn-small" href="#download">Download</a>
+      <a class="btn btn-small" href="#download"><span class="label"><span>Download</span></span></a>
     </nav>
   </header>
 
@@ -38,30 +38,30 @@
       <div class="cta">
         <a class="btn js-download" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0/archive/refs/heads/main.zip" download>
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span>Download for free</span>
+          <span class="label"><span>Download for free</span></span>
         </a>
-        <a class="link" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0">View the source on GitHub</a>
+        <a class="btn btn-ghost" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0"><span class="label"><span>View the source</span></span></a>
       </div>
-      <p class="hint">The dots behind this text are 1,095 real rows from <code>store_sales.csv</code>, a sample file that ships with the app. Point at one to read it.</p>
+      <p class="hint">Scroll and the scatter behind this page regroups into the name of a model. Move the mouse to read the grid, and click to push the dots apart.</p>
     </section>
 
     <section id="how" class="story" aria-label="How it works">
       <ol class="steps">
         <li class="step" data-step="0">
           <button class="step-jump" type="button">Load a CSV</button>
-          <p>Every row arrives as a cell. The app reads the delimiter, the encoding, and which columns hold numbers, groups or dates, and counts the gaps.</p>
+          <p>The app reads the delimiter, the encoding, and which columns hold numbers, groups or dates, and counts the gaps.</p>
         </li>
         <li class="step" data-step="1">
           <button class="step-jump" type="button">Pick a graph</button>
-          <p>A scatter of temperature, sales and customers. Each Suggest list ranks the columns by how strongly they link to your target, so the slots fill themselves.</p>
+          <p>Choose one of 30 graph types. Each Suggest list ranks the columns by how strongly they link to your target, so the slots fill themselves.</p>
         </li>
         <li class="step" data-step="2">
           <button class="step-jump" type="button">Press Plot</button>
-          <p>The same rows fall into a histogram of sales, one colour per store, in a palette that stays readable for colour-blind readers.</p>
+          <p>Zoom, pan and read any point, then save it as PNG, SVG or PDF. The palette stays readable for colour-blind readers.</p>
         </li>
         <li class="step" data-step="3">
           <button class="step-jump" type="button">Copy the code</button>
-          <p>The 7-day mean of sales over the year, one line per store. Zoom with the sliders and the range is written into the code you copy.</p>
+          <p>The plot comes as pandas and seaborn code, style included. Zoom with the sliders and the range is written into the code you copy.</p>
           <pre class="code"><code>df = pd.read_csv("store_sales.csv", parse_dates=["date"])
 df["sales_7d"] = df.groupby("store")["sales"].transform(lambda s: s.rolling(7, min_periods=1).mean())
 sns.lineplot(data=df, x="date", y="sales_7d", hue="store")
@@ -75,6 +75,7 @@ plt.show()</code></pre>
       <h2>Inside the app</h2>
       <p class="section-lede">Real screenshots from version 3.4, in the dark look.</p>
       <div class="tabs" role="tablist" aria-label="Screens">
+        <span class="tab-ind" aria-hidden="true"></span>
         <button role="tab" id="tab-plot" aria-controls="shot" aria-selected="true" data-src="assets/workspace.png" data-alt="Line plot of sales and customers over date, with range sliders beside the axes" data-note="Columns on the left, the plot on the right. Drag to move, scroll to zoom, hover a point to read its value.">Plot</button>
         <button role="tab" id="tab-ideas" aria-controls="shot" aria-selected="false" tabindex="-1" data-src="assets/ideas_notes.png" data-alt="Plot ideas tab listing warnings first, then suggestions with a Plot it button" data-note="Plot ideas tells you what to plot first and warns about leakage, near-copies, heavy gaps and skew.">Plot ideas</button>
         <button role="tab" id="tab-lab" aria-controls="shot" aria-selected="false" tabindex="-1" data-src="assets/feature_lab.png" data-alt="Feature Lab ranking new columns such as title and Cabin_was_missing by information gain" data-note="Feature Lab suggests new columns for a model, measures each against the target and blocks leaky ones.">Feature Lab</button>
@@ -98,7 +99,7 @@ plt.show()</code></pre>
       <p class="section-lede">One ZIP for every computer. The first start sets up Python and the libraries it needs, so it needs an internet connection once.</p>
       <a class="btn btn-big js-download" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0/archive/refs/heads/main.zip" download>
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Download ZIP</span>
+        <span class="label"><span>Download ZIP</span></span>
       </a>
       <p class="status" role="status" aria-live="polite"></p>
       <div class="os">

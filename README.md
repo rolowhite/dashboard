@@ -4,12 +4,14 @@ A single static page for downloading [CSV Plot Studio](https://github.com/rolowh
 and reading or writing reviews. No build step.
 
 * `index.html`, `style.css`, `main.js`: the page. three.js comes from jsDelivr (pinned to 0.160.0).
-* `assets/`: four screenshots and `store_sales.csv` from the app repo. The 3D dots are the rows of that CSV,
-  morphing from a table to a scatter, a histogram and a line plot as you scroll.
+* `assets/`: four screenshots from the app repo.
+* The background is a 3D scatter of 3,600 dots. On each section it regroups into a model name
+  (`MODELS` in `main.js`) and moves in its own way (`MODES`: walk the grid, wave, orbit, flow field, drift).
+  Moving the mouse shows the coordinates of the nearest grid node; clicking pushes the dots apart.
 
 ## Run it locally
 
-The page loads a module and fetches the CSV, so open it through a server, not as a file:
+The page loads JavaScript modules, so open it through a server, not as a file:
 
 ```bash
 python3 -m http.server 8000
