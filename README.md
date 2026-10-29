@@ -1,0 +1,39 @@
+# CSV Plot Studio download page
+
+A single static page for downloading [CSV Plot Studio](https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0)
+and reading or writing reviews. No build step.
+
+* `index.html`, `style.css`, `main.js`: the page. three.js comes from jsDelivr (pinned to 0.160.0).
+* `assets/`: four screenshots and `store_sales.csv` from the app repo. The 3D dots are the rows of that CSV,
+  morphing from a table to a scatter, a histogram and a line plot as you scroll.
+
+## Run it locally
+
+The page loads a module and fetches the CSV, so open it through a server, not as a file:
+
+```bash
+python3 -m http.server 8000
+```
+
+Then open http://localhost:8000.
+
+## Publish it
+
+GitHub Pages: Settings, Pages, deploy from the `main` branch, folder `/`.
+
+## Switch on reviews (giscus)
+
+Reviews use [giscus](https://giscus.app), which stores them as GitHub Discussions in the app repo.
+Until it is set up, the page shows a link to open a review as a GitHub issue instead.
+
+1. In `rolowhite/qwen_based_CSV-plotting-tool_3.3.0`: Settings, General, Features, tick **Discussions**.
+2. Create a discussion category named **Reviews** (type: Announcements, so only giscus starts threads).
+3. Install the giscus app on that repo: https://github.com/apps/giscus
+4. On https://giscus.app enter the repo, pick the **Reviews** category and copy `data-category-id`.
+5. Paste it into `categoryId` at the top of `main.js`. The repo id is already filled in.
+
+## Download link
+
+Both buttons download the `main` branch as a ZIP:
+`https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0/archive/refs/heads/main.zip`.
+To ship a release instead, change the two `href`s in `index.html` to the release asset URL.

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CSV Plot Studio</title>
+  <meta name="description" content="Download CSV Plot Studio: a free desktop app that turns a CSV file into matplotlib and seaborn plots, then shows you the code.">
+  <meta name="color-scheme" content="dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+  <script type="module" src="main.js"></script>
+</head>
+<body>
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div id="tip" class="tip" hidden></div>
+
+  <header class="nav">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 20h18M6 16l4-5 3 3 5-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      CSV Plot Studio
+    </a>
+    <nav aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#inside">Inside the app</a>
+      <a href="#reviews">Reviews</a>
+      <a class="btn btn-small" href="#download">Download</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <p class="kicker">Version 3.4 for Windows and Linux. Free and open source.</p>
+      <h1>Your CSV in.<br>A plot and its code out.</h1>
+      <p class="lede">Load a file, pick one of 30 graph types and press Plot. CSV Plot Studio scans your columns, suggests what to plot first, and hands you the matplotlib code to paste into Jupyter or Kaggle.</p>
+      <div class="cta">
+        <a class="btn js-download" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0/archive/refs/heads/main.zip" download>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Download for free</span>
+        </a>
+        <a class="link" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0">View the source on GitHub</a>
+      </div>
+      <p class="hint">The dots behind this text are 1,095 real rows from <code>store_sales.csv</code>, a sample file that ships with the app. Point at one to read it.</p>
+    </section>
+
+    <section id="how" class="story" aria-label="How it works">
+      <ol class="steps">
+        <li class="step" data-step="0">
+          <button class="step-jump" type="button">Load a CSV</button>
+          <p>Every row arrives as a cell. The app reads the delimiter, the encoding, and which columns hold numbers, groups or dates, and counts the gaps.</p>
+        </li>
+        <li class="step" data-step="1">
+          <button class="step-jump" type="button">Pick a graph</button>
+          <p>A scatter of temperature, sales and customers. Each Suggest list ranks the columns by how strongly they link to your target, so the slots fill themselves.</p>
+        </li>
+        <li class="step" data-step="2">
+          <button class="step-jump" type="button">Press Plot</button>
+          <p>The same rows fall into a histogram of sales, one colour per store, in a palette that stays readable for colour-blind readers.</p>
+        </li>
+        <li class="step" data-step="3">
+          <button class="step-jump" type="button">Copy the code</button>
+          <p>The 7-day mean of sales over the year, one line per store. Zoom with the sliders and the range is written into the code you copy.</p>
+          <pre class="code"><code>df = pd.read_csv("store_sales.csv", parse_dates=["date"])
+df["sales_7d"] = df.groupby("store")["sales"].transform(lambda s: s.rolling(7, min_periods=1).mean())
+sns.lineplot(data=df, x="date", y="sales_7d", hue="store")
+plt.xlim(pd.Timestamp("2025-05-17"), pd.Timestamp("2025-09-09"))
+plt.show()</code></pre>
+        </li>
+      </ol>
+    </section>
+
+    <section id="inside" class="inside">
+      <h2>Inside the app</h2>
+      <p class="section-lede">Real screenshots from version 3.4, in the dark look.</p>
+      <div class="tabs" role="tablist" aria-label="Screens">
+        <button role="tab" id="tab-plot" aria-controls="shot" aria-selected="true" data-src="assets/workspace.png" data-alt="Line plot of sales and customers over date, with range sliders beside the axes" data-note="Columns on the left, the plot on the right. Drag to move, scroll to zoom, hover a point to read its value.">Plot</button>
+        <button role="tab" id="tab-ideas" aria-controls="shot" aria-selected="false" tabindex="-1" data-src="assets/ideas_notes.png" data-alt="Plot ideas tab listing warnings first, then suggestions with a Plot it button" data-note="Plot ideas tells you what to plot first and warns about leakage, near-copies, heavy gaps and skew.">Plot ideas</button>
+        <button role="tab" id="tab-lab" aria-controls="shot" aria-selected="false" tabindex="-1" data-src="assets/feature_lab.png" data-alt="Feature Lab ranking new columns such as title and Cabin_was_missing by information gain" data-note="Feature Lab suggests new columns for a model, measures each against the target and blocks leaky ones.">Feature Lab</button>
+        <button role="tab" id="tab-code" aria-controls="shot" aria-selected="false" tabindex="-1" data-src="assets/code.png" data-alt="Python code tab showing the plot as a pandas and seaborn script" data-note="Every plot comes with its code, including the style, so it looks the same in your notebook.">Python code</button>
+      </div>
+      <figure class="frame" id="shot" role="tabpanel" aria-labelledby="tab-plot">
+        <img src="assets/workspace.png" width="1440" height="900" alt="Line plot of sales and customers over date, with range sliders beside the axes">
+        <figcaption>Columns on the left, the plot on the right. Drag to move, scroll to zoom, hover a point to read its value.</figcaption>
+      </figure>
+
+      <ul class="facts">
+        <li><strong>30 graph types</strong> from the Python Data Science Handbook plus common ML plots.</li>
+        <li><strong>Tables from PDFs and photos</strong>, checked in one review dialog before they are saved as CSV.</li>
+        <li><strong>A Notebook that reads a photo</strong> of a statistics problem and writes the worked solution, offline.</li>
+        <li><strong>Export to clean.py, a notebook</strong> or a Kaggle submission that rebuilds the exact table you see.</li>
+      </ul>
+    </section>
+
+    <section id="download" class="download">
+      <h2>Download CSV Plot Studio</h2>
+      <p class="section-lede">One ZIP for every computer. The first start sets up Python and the libraries it needs, so it needs an internet connection once.</p>
+      <a class="btn btn-big js-download" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0/archive/refs/heads/main.zip" download>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Download ZIP</span>
+      </a>
+      <p class="status" role="status" aria-live="polite"></p>
+      <div class="os">
+        <div>
+          <h3>Windows</h3>
+          <p>Unzip the folder and double-click <code>run_windows.bat</code>. It installs Python 3.12 if the PC has none, then opens the app.</p>
+        </div>
+        <div>
+          <h3>Linux Mint and Ubuntu</h3>
+          <p>Unzip, open a terminal in the folder and run <code>./run_linux.sh</code>. If it reports that Tkinter is missing, run <code>sudo apt install python3-tk</code> once.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="reviews" class="reviews">
+      <h2>Reviews</h2>
+      <p class="section-lede">Tried it? Tell other people what worked and what didn't. Sign in with GitHub to post.</p>
+      <div class="giscus"></div>
+      <p class="giscus-off" hidden>Reviews are not switched on for this page yet. <a href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0/issues/new?title=Review%3A%20&amp;labels=review">Write your review on GitHub</a> instead.</p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>CSV Plot Studio 3.4.0. Made with matplotlib, seaborn and IBM Plex.</p>
+    <a href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0">Source on GitHub</a>
+  </footer>
+</body>
+</html>
