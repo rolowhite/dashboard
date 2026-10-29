@@ -5,11 +5,13 @@ and reading or writing reviews. No build step.
 
 * `index.html` (with its script inline) and `style.css`: the page. three.js comes from jsDelivr (pinned to 0.160.0).
 * `assets/`: four screenshots from the app repo.
-* The background is a 3D grid with its origin (0, 0, 0) at the bottom left, and 3,900 grey points:
-  * A coral line from the origin follows the mouse as a regression line; 900 points sit around it as its
-    residuals and trail it as it turns. The label by the cursor shows the grid coordinates and the fit.
-  * Scrolling draws a bell curve from left to right, complete at the bottom of the page. The other 3,000
-    points roam the grid until the curve reaches them, then pile up on it, spread along z.
+* The background is a 3D box of grids (back wall, left wall and floor) meeting at the origin (0, 0, 0),
+  with 3,900 grey points. The camera fits the whole box to the screen.
+  * A coral line runs from the origin to the point under the mouse, at depth inside the box, as a
+    regression line; 900 points sit around it in 3D as its residuals and trail it as it moves. The label
+    by the cursor shows that point's x, y and z in grid cells.
+  * Scrolling builds a 3D bell from left to right, complete at the bottom of the page. The other 3,000
+    points roam the box until the bell reaches them, then fill it at different heights, spread along z.
   * Clicking pushes the points apart.
 
 ## Run it locally

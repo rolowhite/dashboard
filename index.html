@@ -41,7 +41,7 @@
         </a>
         <a class="btn btn-ghost" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0"><span class="label"><span>View the source</span></span></a>
       </div>
-      <p class="hint">Move the mouse: the coral line from (0, 0, 0) follows it as the regression line of the grey points around it. Scroll to draw the bell curve; it is complete at the bottom of the page. Click to push the points apart.</p>
+      <p class="hint">Move the mouse: the coral line runs from (0, 0, 0) through the box to the point under it, as the regression line of the grey points around it. Scroll to build the bell; it is complete at the bottom of the page. Click to push the points apart.</p>
     </section>
 
     <section id="how" class="story" aria-label="How it works">
@@ -150,7 +150,7 @@ addEventListener("scroll", readScroll, { passive: true });
 addEventListener("resize", readScroll);
 readScroll();
 
-/* ---------- scene: a grid from (0, 0, 0), a bell curve drawn by scrolling, a regression line on the cursor ---------- */
+/* ---------- scene: a 3D box of grids from (0, 0, 0), a bell drawn by scrolling, a regression line to the cursor ---------- */
 
 async function startScene() {
   const canvas = document.getElementById("scene");
@@ -164,20 +164,18 @@ async function startScene() {
   }
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x121214, 9, 16);
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 50);
-  const CAM_Z = 7.5;
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x2b2b30, 1.8));
 
   const line = (color, opacity = 1) => new THREE.LineBasicMaterial({ color, transparent: true, opacity });
-  const grid = new THREE.LineSegments(new THREE.BufferGeometry(), line(0x2e2e34));
-  const axes = new THREE.LineSegments(new THREE.BufferGeometry(), line(0x6c6c76));
-  const bell = new THREE.Line(new THREE.BufferGeometry(), line(0xededf0, 0.75));
+  const grid = new THREE.LineSegments(new THREE.BufferGeometry(), line(0x34343b));
+  const axes = new THREE.LineSegments(new THREE.BufferGeometry(), line(0x7c7c86));
+  const bell = new THREE.Line(new THREE.BufferGeometry(), line(0xededf0, 0.8));
   const fit = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), line(0xf2764b));
   scene.add(grid, axes, bell, fit);
 
   const dots = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(0.011, 1),
+    new THREE.IcosahedronGeometry(0.014, 1),
     new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0, transparent: true }),
     N,
   );
@@ -187,32 +185,55 @@ async function startScene() {
   for (let i = 0; i < N; i++) dots.setColorAt(i, greys[i < NB ? i % greys.length : 2 + (i % 2)]);
   scene.add(dots);
 
-  // fixed random draws: bell dots sorted by x (in σ) so the curve fills from left to right
+  // fixed random draws: bell dots sorted by x (in σ) so the bell fills from left to right
   const bx = Float32Array.from({ length: NB }, () => Math.max(-3.2, Math.min(3.2, gauss()))).sort();
-  const z = Float32Array.from({ length: N }, gauss);
+  const bz = Float32Array.from({ length: NB }, () => Math.max(-2.4, Math.min(2.4, gauss())));
+  const bh = Float32Array.from({ length: NB }, () => Math.random() ** 0.6); // height under the bell, 0 floor to 1 surface
   const home = Float32Array.from({ length: N * 3 }, Math.random);
-  const ru = Float32Array.from({ length: NR }, Math.random), rn = Float32Array.from({ length: NR }, gauss);
+  const ru = Float32Array.from({ length: NR }, Math.random), r1 = Float32Array.from({ length: NR }, gauss), r2 = Float32Array.from({ length: NR }, gauss);
   const rate = Float32Array.from({ length: NR }, () => 2 + Math.random() * 5); // how fast each dot keeps up with the line
   const pos = new Float32Array(N * 3), push = new Float32Array(N * 3), vel = new Float32Array(N * 3);
   const m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1);
 
-  let O = new THREE.Vector3(), W = 1, H = 1, CELL = 0.4, wide = true;
-  const curveY = xr => H * 0.8 * Math.exp(-((xr - W / 2) ** 2) / (2 * (W / 7) ** 2)); // μ = W/2, σ = W/7
+  // the box: origin O at the back left bottom corner, W along x, H up y, D toward the viewer along z
+  const O = new THREE.Vector3(), C = new THREE.Vector3(), bounds = new THREE.Box3(), corner = new THREE.Vector3();
+  const aimCamera = (yaw, pitch) => {
+    camera.position.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(dist);
+    camera.lookAt(C);
+    camera.updateMatrixWorld();
+  };
+  let W = 8, H = 4.5, D = 4, CELL = 0.5, dist = 10, wide = true;
+  const S = () => W / 7; // σ of the bell along x and, scaled, along z
+  const bellY = (xr, zr) => H * 0.8 * Math.exp(-((xr - W / 2) ** 2) / (2 * S() ** 2) - zr * zr / 2);
 
-  // the grid fills most of the view; its corner at the bottom left is (0, 0, 0)
   function layout() {
-    const hh = Math.tan(THREE.MathUtils.degToRad(20)) * CAM_Z, hw = hh * camera.aspect;
-    W = hw * 1.7; H = Math.min(hh * 1.5, W * 0.8);
-    const nx = Math.round(W / 0.4), ny = Math.round(H / (W / nx));
-    CELL = W / nx; H = ny * CELL;
-    O.set(-W / 2, -H / 2 - 0.2, 0);
-    const g = [];
-    for (let k = 0; k <= nx; k++) g.push(O.x + k * CELL, O.y, 0, O.x + k * CELL, O.y + H, 0);
-    for (let k = 0; k <= ny; k++) g.push(O.x, O.y + k * CELL, 0, O.x + W, O.y + k * CELL, 0);
+    wide = camera.aspect > 0.8;
+    [W, H, D] = wide ? [8, 4.5, 4] : [3.5, 5, 3];
+    CELL = 0.5;
+    O.set(-W / 2, -H / 2, -D / 2);
+    C.set(0, 0, 0);
+    // move the camera in or out until the box's corners just fill the screen
+    bounds.set(O, new THREE.Vector3(O.x + W, O.y + H, O.z + D));
+    for (let i = 0, lo = 1, hi = 40; i < 24; i++) {
+      dist = (lo + hi) / 2;
+      aimCamera(0.42, 0.3);
+      let edge = 0;
+      for (let c = 0; c < 8; c++) {
+        corner.set(c & 1 ? O.x + W : O.x, c & 2 ? O.y + H : O.y, c & 4 ? O.z + D : O.z).project(camera);
+        edge = Math.max(edge, Math.abs(corner.x), Math.abs(corner.y));
+      }
+      if (edge > 0.97) lo = dist; else hi = dist;
+    }
+    const g = [], nx = W / CELL, ny = H / CELL, nz = D / CELL;
+    const add = (a, b) => g.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    const at = (x, y, z) => [O.x + x, O.y + y, O.z + z];
+    for (let k = 0; k <= nx; k++) { const x = k * CELL; add(at(x, 0, 0), at(x, H, 0)); add(at(x, 0, 0), at(x, 0, D)); } // back wall, floor
+    for (let k = 0; k <= ny; k++) { const y = k * CELL; add(at(0, y, 0), at(W, y, 0)); add(at(0, y, 0), at(0, y, D)); } // back wall, left wall
+    for (let k = 0; k <= nz; k++) { const z = k * CELL; add(at(0, 0, z), at(W, 0, z)); add(at(0, 0, z), at(0, H, z)); } // floor, left wall
     grid.geometry.setAttribute("position", new THREE.Float32BufferAttribute(g, 3));
-    axes.geometry.setAttribute("position", new THREE.Float32BufferAttribute([...O, O.x + W, O.y, 0, ...O, O.x, O.y + H, 0, ...O, O.x, O.y, 2], 3));
+    axes.geometry.setAttribute("position", new THREE.Float32BufferAttribute([...at(0, 0, 0), ...at(W, 0, 0), ...at(0, 0, 0), ...at(0, H, 0), ...at(0, 0, 0), ...at(0, 0, D)], 3));
     const b = [];
-    for (let j = 0; j < BELL; j++) { const xr = (W * j) / (BELL - 1); b.push(O.x + xr, O.y + curveY(xr), 0); }
+    for (let j = 0; j < BELL; j++) { const xr = (W * j) / (BELL - 1); b.push(...at(xr, bellY(xr, 0), D / 2)); }
     bell.geometry.setAttribute("position", new THREE.Float32BufferAttribute(b, 3));
   }
 
@@ -220,55 +241,61 @@ async function startScene() {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
-    wide = innerWidth > 900;
     layout();
   }
   addEventListener("resize", resize);
   resize();
 
   const clock = new THREE.Clock(), look = new THREE.Vector2(), aim = new THREE.Vector2(9, 9), ZERO = new THREE.Vector2(), b3 = [0, 0, 0];
-  let shown = 0, angle = 0.5, target = null; // target: the cursor's angle from the origin, null without a cursor
+  const end = new THREE.Vector3(), want = new THREE.Vector3(), dir = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  let shown = 0, cursor = null; // cursor: the 3D point under the mouse, null without one
 
   function frame() {
     requestAnimationFrame(frame);
     const dt = Math.min(0.1, clock.getDelta()), t = reduced ? 0 : clock.elapsedTime, k = 1 - Math.exp(-dt * 4);
 
-    // scroll draws the bell curve: complete at the bottom of the page
+    // the camera looks into the box from the front right, drifting and leaning toward the mouse
+    if (!reduced) look.lerp(aim.x < 9 ? aim : ZERO, 0.04);
+    aimCamera(0.42 + Math.sin(t * 0.19) * 0.1 + look.x * 0.12, 0.3 + Math.cos(t * 0.15) * 0.06 + look.y * 0.08);
+    dots.material.opacity = wide ? 0.95 : 0.6;
+
+    // scroll draws the bell: complete at the bottom of the page
     const progress = clamp01(scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight));
     shown = reduced ? progress : shown + (progress - shown) * k;
     bell.geometry.setDrawRange(0, Math.max(2, Math.round(shown * BELL)));
     const front = shown * W * 1.1 - W * 0.05;
 
-    // the regression line turns toward the cursor; without one it sways on its own
-    const want = target ?? (reduced ? 0.5 : 0.55 + Math.sin(t * 0.35) * 0.35);
-    angle += (want - angle) * (reduced ? 1 : 1 - Math.exp(-dt * 6));
-    const cx = Math.cos(angle), sy = Math.sin(angle), L = Math.min(W / Math.max(cx, 1e-3), H / Math.max(sy, 1e-3));
-    fit.geometry.attributes.position.setXYZ(0, O.x, O.y, 0);
-    fit.geometry.attributes.position.setXYZ(1, O.x + cx * L, O.y + sy * L, 0);
+    // the regression line runs from O to the cursor's point in the box; without one it circles on its own
+    if (cursor) want.copy(cursor);
+    else want.set(O.x + W * (0.7 + Math.sin(t * 0.3) * 0.2), O.y + H * (0.65 + Math.cos(t * 0.4) * 0.2), O.z + D * (0.5 + Math.sin(t * 0.23) * 0.4));
+    end.lerp(want, reduced ? 1 : 1 - Math.exp(-dt * 6));
+    fit.geometry.attributes.position.setXYZ(0, O.x, O.y, O.z);
+    fit.geometry.attributes.position.setXYZ(1, end.x, end.y, end.z);
     fit.geometry.attributes.position.needsUpdate = true;
-
-    // the camera drifts and leans toward the mouse, so the grid reads as 3D
-    if (!reduced) look.lerp(aim.x < 9 ? aim : ZERO, 0.04);
-    camera.position.set(0.9 + Math.sin(t * 0.21) * 0.7 + look.x * 0.8, 0.5 + Math.cos(t * 0.17) * 0.4 + look.y * 0.5, CAM_Z);
-    camera.lookAt(0, -0.2, 0);
-    dots.material.opacity = wide ? 0.95 : 0.55;
+    dir.subVectors(end, O);
+    const L = dir.length();
+    dir.divideScalar(L || 1);
+    e1.set(0, 1, 0).cross(dir).normalize(); // two directions across the line for its residuals
+    if (e1.lengthSq() < 0.5) e1.set(1, 0, 0);
+    e2.crossVectors(dir, e1);
 
     for (let i = 0; i < N; i++) {
       const h = i * 3;
       let x, y, zz;
       if (i < NB) {
-        const xr = W / 2 + bx[i] * (W / 7), on = ease(clamp01((front - xr) / (W * 0.08)));
-        // waiting dots roam the grid in a flow field; reached dots pile up on the curve, spread along z
-        const hx = home[h] * W, hy = home[h + 1] * H, ph = home[h + 2] * 6.28;
-        const dx = O.x + hx + Math.sin(hy * 1.7 + t * 0.7 + ph) * 0.55, dy = O.y + hy + Math.cos(hx * 1.3 + t * 0.6) * 0.45;
-        const dz = (home[h + 2] - 0.5) * 3 + Math.sin(t * 0.8 + ph) * 0.5;
+        const xr = W / 2 + bx[i] * S(), zr = bz[i], on = ease(clamp01((front - xr) / (W * 0.08)));
+        // waiting dots roam the box in a flow field; reached dots fill the bell at their own height
+        const hx = home[h] * W, hy = home[h + 1] * H, hz = home[h + 2] * D, ph = home[h + 2] * 6.28;
+        const dx = O.x + hx + Math.sin(hy * 1.7 + t * 0.7 + ph) * 0.6, dy = O.y + hy + Math.cos(hx * 1.3 + t * 0.6) * 0.5;
+        const dz = O.z + hz + Math.sin(hx * 0.9 + t * 0.8 + ph) * 0.6;
+        const ty = O.y + bellY(xr, zr) * bh[i] + Math.sin(t * 1.3 + ph) * 0.03, tz = O.z + D / 2 + zr * (D * 0.18);
         x = dx + (O.x + xr - dx) * on;
-        y = dy + (O.y + curveY(xr) - dy) * on;
-        zz = dz + (z[i] * 0.55 + Math.sin(t * 1.3 + ph) * 0.08 - dz) * on;
+        y = dy + (ty - dy) * on;
+        zz = dz + (tz - dz) * on;
       } else {
-        // around the line: along it by u, off it by a normal residual, and some depth
-        const r = i - NB, d = ru[r] * L, n = rn[r] * 0.22 + Math.sin(t * 1.1 + r) * 0.04;
-        const tx = O.x + cx * d - sy * n, ty = O.y + sy * d + cx * n, tz = z[i] * 0.4 + Math.cos(t * 0.9 + r) * 0.1;
+        // around the line in 3D: along it by u, off it by two normal residuals
+        const r = i - NB, d = ru[r] * L, a = r1[r] * 0.22 + Math.sin(t * 1.1 + r) * 0.04, b = r2[r] * 0.22 + Math.cos(t * 0.9 + r) * 0.04;
+        const tx = O.x + dir.x * d + e1.x * a + e2.x * b, ty = O.y + dir.y * d + e1.y * a + e2.y * b, tz = O.z + dir.z * d + e1.z * a + e2.z * b;
         const f = reduced ? 1 : 1 - Math.exp(-dt * rate[r]); // each dot lags a little, so the cloud trails the line
         x = (pos[h] - push[h]) + (tx - (pos[h] - push[h])) * f;
         y = (pos[h + 1] - push[h + 1]) + (ty - (pos[h + 1] - push[h + 1])) * f;
@@ -287,30 +314,41 @@ async function startScene() {
   }
   requestAnimationFrame(frame);
 
-  /* the cursor on the grid: it steers the line, and the readout shows where it is and the fit */
-  const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), hit = new THREE.Vector3();
+  /* the cursor in the box: halfway between where its ray enters and leaves the box, so it sits under the cursor at depth */
+  const ray = new THREE.Raycaster(), plane = new THREE.Plane(), hit = new THREE.Vector3(), normal = new THREE.Vector3();
+  const enter = new THREE.Vector3(), leave = new THREE.Vector3(), back = new THREE.Ray();
   const box = document.getElementById("cross"), label = box.querySelector("b");
-  const onGrid = e => {
+  const inBox = e => {
     aim.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     ray.setFromCamera(aim, camera);
-    return ray.ray.intersectPlane(plane, hit);
+    if (ray.ray.intersectBox(bounds, enter)) {
+      back.set(ray.ray.at(1000, leave), ray.ray.direction.clone().negate());
+      back.intersectBox(bounds, leave);
+      hit.addVectors(enter, leave).multiplyScalar(0.5);
+      return true;
+    }
+    // outside the box: the nearest point in it, on the plane through its centre facing the camera
+    plane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(normal), C);
+    if (!ray.ray.intersectPlane(plane, hit)) return false;
+    hit.set(Math.max(O.x, Math.min(O.x + W, hit.x)), Math.max(O.y, Math.min(O.y + H, hit.y)), Math.max(O.z, Math.min(O.z + D, hit.z)));
+    return true;
   };
   addEventListener("pointermove", e => {
-    if (!onGrid(e)) return;
-    target = Math.max(0.03, Math.min(1.54, Math.atan2(hit.y - O.y, hit.x - O.x))); // stay in the first quadrant
+    if (!inBox(e)) return;
+    cursor = (cursor ?? new THREE.Vector3()).copy(hit);
     if (e.pointerType !== "mouse") return;
-    const gx = (hit.x - O.x) / CELL, gy = (hit.y - O.y) / CELL;
-    label.textContent = `x ${gx.toFixed(1)}, y ${gy.toFixed(1)}\nŷ = ${Math.tan(target).toFixed(2)}x`;
+    const c = v => (v / CELL).toFixed(1);
+    label.textContent = `x ${c(hit.x - O.x)}, y ${c(hit.y - O.y)}, z ${c(hit.z - O.z)}`;
     box.style.setProperty("--x", e.clientX + "px");
     box.style.setProperty("--y", e.clientY + "px");
-    box.classList.toggle("flip", e.clientX > innerWidth - 160); // keep the label on screen
+    box.classList.toggle("flip", e.clientX > innerWidth - 200); // keep the label on screen
     box.hidden = false;
   }, { passive: true });
-  document.documentElement.addEventListener("pointerleave", () => { box.hidden = true; target = null; aim.set(9, 9); });
+  document.documentElement.addEventListener("pointerleave", () => { box.hidden = true; cursor = null; aim.set(9, 9); });
 
   /* click: a ripple pushes nearby dots away, then they spring back */
   canvas.addEventListener("pointerdown", e => {
-    if (reduced || !onGrid(e)) return;
+    if (reduced || !inBox(e)) return;
     for (let i = 0; i < N; i++) {
       const dx = pos[i * 3] - hit.x, dy = pos[i * 3 + 1] - hit.y, dz = pos[i * 3 + 2] - hit.z;
       const d = Math.hypot(dx, dy, dz);
