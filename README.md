@@ -3,10 +3,10 @@
 A single static page for downloading [CSV Plot Studio](https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0)
 and reading or writing reviews. No build step.
 
-* `index.html`, `style.css`, `main.js`: the page. three.js comes from jsDelivr (pinned to 0.160.0).
+* `index.html` (with its script inline) and `style.css`: the page. three.js comes from jsDelivr (pinned to 0.160.0).
 * `assets/`: four screenshots from the app repo.
 * The background is a 3D scatter of 3,600 dots. On each section it regroups into a model name
-  (`MODELS` in `main.js`) and moves in its own way (`MODES`: walk the grid, wave, orbit, flow field, drift).
+  (`MODELS` in the script in `index.html`) and moves in its own way (`MODES`: walk the grid, wave, orbit, flow field, drift).
   Moving the mouse shows the coordinates of the nearest grid node; clicking pushes the dots apart.
 
 ## Run it locally
@@ -32,7 +32,7 @@ Until it is set up, the page shows a link to open a review as a GitHub issue ins
 2. Create a discussion category named **Reviews** (type: Announcements, so only giscus starts threads).
 3. Install the giscus app on that repo: https://github.com/apps/giscus
 4. On https://giscus.app enter the repo, pick the **Reviews** category and copy `data-category-id`.
-5. Paste it into `categoryId` at the top of `main.js`. The repo id is already filled in.
+5. Paste it into `categoryId` at the top of the script in `index.html`. The repo id is already filled in.
 
 ## Download link
 
