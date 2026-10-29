@@ -19,11 +19,6 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background: var(--bg);
-  /* the app's dark graph paper */
-  background-image:
-    linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
-  background-size: 48px 48px;
   color: var(--text);
   font: 400 1.0625rem/1.6 var(--sans);
   overflow-x: hidden;
@@ -60,42 +55,30 @@ a { color: inherit; }
 .nav nav a:not(.btn):hover { color: var(--text); }
 @media (max-width: 720px) { .nav nav a:not(.btn) { display: none; } }
 
-/* buttons: flat 2D slabs on a hard edge; the label rolls on hover, a panel slides across on click */
+/* buttons: flat 2D; a light panel slides across after a click */
 .btn {
-  --edge: #8f3416;
   position: relative; isolation: isolate; overflow: hidden;
   display: inline-flex; align-items: center; gap: 10px;
   min-height: 48px; padding: 0 24px;
-  border: 1.5px solid #ff9a74; border-radius: 12px;
+  border: 1px solid var(--coral); border-radius: 10px;
   background: var(--coral); color: var(--on-coral);
-  font-weight: 600; text-decoration: none; letter-spacing: -.01em;
-  box-shadow: 0 4px 0 var(--edge);
-  transition: transform .18s cubic-bezier(.3, .7, .4, 1), box-shadow .18s cubic-bezier(.3, .7, .4, 1);
+  font-weight: 600; text-decoration: none;
+  transition: background-color .2s, border-color .2s;
 }
 .btn::before {
-  content: ""; position: absolute; inset: -2px; z-index: -1;
+  content: ""; position: absolute; inset: -1px; z-index: -1;
   background: #ffc2a8;
   transform: translateX(-105%) skewX(-14deg);
 }
-.btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--edge); }
-.btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--edge); transition-duration: .06s; }
+.btn:hover { background: #f58a63; border-color: #f58a63; }
 .btn.slide::before { animation: sweep .7s cubic-bezier(.65, 0, .25, 1); }
 @keyframes sweep { from { transform: translateX(-105%) skewX(-14deg); } to { transform: translateX(105%) skewX(-14deg); } }
-.btn svg { flex: none; transition: transform .3s ease; }
-.btn:hover svg { transform: translateY(2px); }
-.btn.slide svg { animation: drop .6s cubic-bezier(.65, 0, .25, 1); }
-@keyframes drop { 45% { transform: translateY(32px); } 46% { transform: translateY(-32px); } to { transform: none; } }
-/* the label's copy sits one line below (text-shadow) and rolls up on hover */
-.label { display: inline-block; overflow: hidden; height: 1.4em; line-height: 1.4em; }
-.label > span { display: block; text-shadow: 0 1.4em currentColor; transition: transform .4s cubic-bezier(.65, 0, .25, 1); }
-.btn:hover .label > span, .btn:focus-visible .label > span { transform: translateY(-1.4em); }
-.btn-ghost { --edge: #2b2b30; background: var(--panel); color: var(--text); border-color: #3a3a41; }
-.btn-ghost::before { background: rgba(242, 118, 75, .22); }
-.btn-small { min-height: 38px; padding: 0 16px; border-radius: 10px; font-size: .9rem; box-shadow: 0 3px 0 var(--edge); }
-.btn-small:hover { box-shadow: 0 5px 0 var(--edge); }
-.btn-big { min-height: 64px; padding: 0 36px; font-size: 1.2rem; border-radius: 14px; box-shadow: 0 6px 0 var(--edge); }
-.btn-big:hover { box-shadow: 0 8px 0 var(--edge); }
-.btn-big:active { transform: translateY(6px); }
+.btn svg { flex: none; }
+.btn-ghost { background: transparent; color: var(--text); border-color: #4a4a52; }
+.btn-ghost:hover { background: var(--panel); border-color: #6c6c76; }
+.btn-ghost::before { background: rgba(242, 118, 75, .25); }
+.btn-small { min-height: 38px; padding: 0 16px; border-radius: 8px; font-size: .9rem; }
+.btn-big { min-height: 60px; padding: 0 34px; font-size: 1.15rem; border-radius: 12px; }
 
 /* hero */
 .hero {
@@ -146,7 +129,7 @@ a { color: inherit; }
 .tabs { position: relative; display: flex; flex-wrap: wrap; gap: 8px; margin: 36px 0 20px; }
 .tab-ind {
   position: absolute; left: 0; top: 0; height: 44px; border-radius: 999px;
-  background: var(--coral); box-shadow: 0 3px 0 #8f3416;
+  background: var(--coral);
   transition: transform .45s cubic-bezier(.65, 0, .25, 1), width .45s cubic-bezier(.65, 0, .25, 1);
 }
 .tabs button {
@@ -189,26 +172,19 @@ a { color: inherit; }
   color: var(--muted); font-size: .9rem; background: var(--bg);
 }
 
-/* grid readout: crosshair on the nearest grid node, with its coordinates */
-.cross { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-.cross i, .cross b { position: absolute; left: 0; top: 0; transition: transform .14s cubic-bezier(.3, .7, .4, 1); }
-.cross .cx { width: 1px; height: 100%; background: rgba(242, 118, 75, .3); transform: translateX(var(--x)); }
-.cross .cy { height: 1px; width: 100%; background: rgba(242, 118, 75, .3); transform: translateY(var(--y)); }
+/* grid readout: the cursor's grid coordinates and the regression line through it */
+.cross { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
 .cross b {
-  transform: translate(calc(var(--x) + 12px), calc(var(--y) + 12px));
-  padding: 3px 8px; border-radius: 6px; white-space: nowrap;
-  background: var(--coral); color: var(--on-coral); font: 500 .75rem/1.4 var(--mono);
+  position: absolute; left: 0; top: 0;
+  transform: translate(calc(var(--x) + 16px), calc(var(--y) + 16px));
+  padding: 4px 9px; border-radius: 6px; white-space: pre;
+  background: var(--panel); border: 1px solid #3a3a41; color: var(--text); font: 500 .75rem/1.5 var(--mono);
 }
-.cross.flip b { transform: translate(calc(var(--x) - 100% - 12px), calc(var(--y) + 12px)); }
-.cross.flip b::before { left: auto; right: -15px; }
-.cross b::before {
-  content: ""; position: absolute; left: -15px; top: -15px; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--coral); box-shadow: 0 0 0 5px rgba(242, 118, 75, .25);
-}
+.cross.flip b { transform: translate(calc(var(--x) - 100% - 16px), calc(var(--y) + 16px)); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .frame img.swap, .btn.slide::before, .btn.slide svg { animation: none; }
-  .cross i, .cross b, .tab-ind, .label > span { transition: none; }
+  .frame img.swap, .btn.slide::before { animation: none; }
+  .tab-ind { transition: none; }
   .step { transition: none; }
 }

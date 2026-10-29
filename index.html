@@ -14,7 +14,7 @@
 </head>
 <body>
   <canvas id="scene" aria-hidden="true"></canvas>
-  <div id="cross" class="cross" aria-hidden="true" hidden><i class="cx"></i><i class="cy"></i><b></b></div>
+  <div id="cross" class="cross" aria-hidden="true" hidden><b></b></div>
 
   <header class="nav">
     <a class="brand" href="#top">
@@ -41,7 +41,7 @@
         </a>
         <a class="btn btn-ghost" href="https://github.com/rolowhite/qwen_based_CSV-plotting-tool_3.3.0"><span class="label"><span>View the source</span></span></a>
       </div>
-      <p class="hint">Scroll and the scatter behind this page regroups into the name of a model. Move the mouse to read the grid, and click to push the dots apart.</p>
+      <p class="hint">Move the mouse: the coral line from (0, 0, 0) follows it as the regression line of the grey points around it. Scroll to draw the bell curve; it is complete at the bottom of the page. Click to push the points apart.</p>
     </section>
 
     <section id="how" class="story" aria-label="How it works">
@@ -131,64 +131,26 @@ import * as THREE from "three";
 const REPO = "rolowhite/qwen_based_CSV-plotting-tool_3.3.0";
 // Giscus: fill CATEGORY_ID from https://giscus.app after enabling Discussions (see README).
 const GISCUS = { repoId: "R_kgDOVZsf_w", category: "Reviews", categoryId: "" };
-const COLORS = ["#2a78d6", "#1baf7a", "#eda100", "#f2764b"]; // the app's Studio palette and its coral
-// one formation per scroll anchor: a random scatter, then a model name per section
-const MODELS = ["Linear\nregression", "Random\nforest", "k-means", "Neural\nnetwork", "Gradient\nboosting", "Decision\ntree", "PCA"];
-// how the dots move in each formation: 0 walk the grid, 1 wave, 2 orbit, 3 flow field, 4 drift
-const MODES = [0, 1, 2, 3, 4, 1, 2, 3];
-const N = 3600, GRID = 0.25;
+const GREYS = ["#5c5c66", "#7c7c86", "#a6a6b0", "#c8c8cf"];
+const NB = 3000, NR = 900, N = NB + NR; // dots for the bell curve, dots around the regression line
+const BELL = 200; // points on the drawn curve
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const ease = t => t * t * (3 - 2 * t);
 const clamp01 = t => Math.max(0, Math.min(1, t));
+const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
 
-/* ---------- text to points: N samples of a model name, width 1, centred ---------- */
-
-function textPoints(label) {
-  const W = 1200, H = 520, c = document.createElement("canvas");
-  c.width = W; c.height = H;
-  const g = c.getContext("2d", { willReadFrequently: true });
-  g.fillStyle = "#fff";
-  g.font = "600 170px 'IBM Plex Sans', sans-serif";
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  const lines = label.split("\n");
-  lines.forEach((l, i) => g.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * 190));
-  const px = g.getImageData(0, 0, W, H).data, hits = [];
-  let x0 = W, x1 = 0, y0 = H, y1 = 0;
-  for (let y = 0; y < H; y += 3) for (let x = 0; x < W; x += 3) if (px[(y * W + x) * 4 + 3] > 128) {
-    hits.push(x, y);
-    x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
-  }
-  const w = x1 - x0 || 1, out = new Float32Array(N * 2);
-  for (let i = 0; i < N; i++) {
-    const k = Math.floor(Math.random() * (hits.length / 2)) * 2;
-    out[i * 2] = (hits[k] - (x0 + x1) / 2) / w;
-    out[i * 2 + 1] = -(hits[k + 1] - (y0 + y1) / 2) / w;
-  }
-  return out;
-}
-
-/* ---------- scroll: stage follows the anchor nearest the middle of the screen ---------- */
+/* ---------- steps: the one crossing the middle of the screen is lit ---------- */
 
 const stepEls = [...document.querySelectorAll(".step")];
-const anchors = [document.querySelector(".hero"), ...stepEls, ...["inside", "download", "reviews"].map(id => document.getElementById(id))];
-let stage = 0;
-
 function readScroll() {
   const mid = innerHeight / 2;
-  // the hero and the steps count from their centre, the later sections from their top
-  const c = anchors.map((el, i) => { const r = el.getBoundingClientRect(); return (i <= stepEls.length ? r.top + r.height / 2 : r.top) - mid; });
-  let s = 0;
-  if (c.at(-1) <= 0) s = c.length - 1;
-  else if (c[0] <= 0) for (let i = 0; i < c.length - 1; i++) if (c[i] <= 0 && c[i + 1] > 0) s = i + -c[i] / (c[i + 1] - c[i]);
-  stage = s;
-  stepEls.forEach((el, i) => el.classList.toggle("on", Math.round(s) === i + 1));
+  for (const el of stepEls) { const r = el.getBoundingClientRect(); el.classList.toggle("on", r.top < mid && r.bottom > mid); }
 }
 addEventListener("scroll", readScroll, { passive: true });
 addEventListener("resize", readScroll);
 readScroll();
 
-/* ---------- scene ---------- */
+/* ---------- scene: a grid from (0, 0, 0), a bell curve drawn by scrolling, a regression line on the cursor ---------- */
 
 async function startScene() {
   const canvas = document.getElementById("scene");
@@ -200,161 +162,164 @@ async function startScene() {
     document.querySelector(".hint").textContent = "The moving scatter needs 3D graphics (WebGL), which this browser has turned off. Turn on hardware acceleration in its settings to see it.";
     return;
   }
-  await document.fonts.ready; // the names are drawn in IBM Plex
-  const names = MODELS.map(textPoints);
-
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x121214, 6, 12);
+  scene.fog = new THREE.Fog(0x121214, 9, 16);
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 50);
-  camera.position.set(0, 0.3, 6.4);
-  camera.lookAt(0, 0, 0);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x2b2b30, 1.6));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
-  sun.position.set(3, 4, 5);
-  scene.add(sun);
+  const CAM_Z = 7.5;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x2b2b30, 1.8));
 
-  const group = new THREE.Group();
-  scene.add(group);
-  const grid = new THREE.GridHelper(10, 40, 0x3a3a41, 0x232327);
-  grid.material.transparent = true;
-  grid.position.y = -2;
-  group.add(grid);
+  const line = (color, opacity = 1) => new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+  const grid = new THREE.LineSegments(new THREE.BufferGeometry(), line(0x2e2e34));
+  const axes = new THREE.LineSegments(new THREE.BufferGeometry(), line(0x6c6c76));
+  const bell = new THREE.Line(new THREE.BufferGeometry(), line(0xededf0, 0.75));
+  const fit = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), line(0xf2764b));
+  scene.add(grid, axes, bell, fit);
 
   const dots = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(0.018, 1),
-    new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.1, transparent: true }),
+    new THREE.IcosahedronGeometry(0.011, 1),
+    new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0, transparent: true }),
     N,
   );
   dots.frustumCulled = false; // three caches the instance bounds, and the dots keep moving
-  const colors = COLORS.map(c => new THREE.Color(c));
-  for (let i = 0; i < N; i++) dots.setColorAt(i, colors[Math.random() < 0.1 ? 3 : i % 3]);
-  group.add(dots);
+  const greys = GREYS.map(c => new THREE.Color(c));
+  // the points around the regression line are the lighter greys
+  for (let i = 0; i < N; i++) dots.setColorAt(i, greys[i < NB ? i % greys.length : 2 + (i % 2)]);
+  scene.add(dots);
 
-  const rnd = Float32Array.from({ length: N * 3 }, () => Math.random() * 2 - 1);
-  const delay = Float32Array.from({ length: N }, () => Math.random());
+  // fixed random draws: bell dots sorted by x (in σ) so the curve fills from left to right
+  const bx = Float32Array.from({ length: NB }, () => Math.max(-3.2, Math.min(3.2, gauss()))).sort();
+  const z = Float32Array.from({ length: N }, gauss);
+  const home = Float32Array.from({ length: N * 3 }, Math.random);
+  const ru = Float32Array.from({ length: NR }, Math.random), rn = Float32Array.from({ length: NR }, gauss);
+  const rate = Float32Array.from({ length: NR }, () => 2 + Math.random() * 5); // how fast each dot keeps up with the line
   const pos = new Float32Array(N * 3), push = new Float32Array(N * 3), vel = new Float32Array(N * 3);
   const m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1);
-  let targets = [], wide = true;
 
-  // places the scatter and the names for this screen: beside the steps on wide screens, centred later on
+  let O = new THREE.Vector3(), W = 1, H = 1, CELL = 0.4, wide = true;
+  const curveY = xr => H * 0.8 * Math.exp(-((xr - W / 2) ** 2) / (2 * (W / 7) ** 2)); // μ = W/2, σ = W/7
+
+  // the grid fills most of the view; its corner at the bottom left is (0, 0, 0)
   function layout() {
-    const sx = wide ? 3.6 : 1.3, sy = wide ? 2.1 : 2.3;
-    const scatter = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) scatter.set([rnd[i * 3] * sx, rnd[i * 3 + 1] * sy, rnd[i * 3 + 2] * 1.5], i * 3);
-    targets = [scatter, ...names.map((pts, k) => {
-      const beside = wide && k < stepEls.length, w = wide ? (beside ? 3.2 : 4.6) : 1.9;
-      const cx = beside ? 1.75 : 0, cy = wide ? 0 : 0.9, out = new Float32Array(N * 3);
-      for (let i = 0; i < N; i++) out.set([cx + pts[i * 2] * w, cy + pts[i * 2 + 1] * w, rnd[i * 3 + 2] * 0.03], i * 3);
-      return out;
-    })];
+    const hh = Math.tan(THREE.MathUtils.degToRad(20)) * CAM_Z, hw = hh * camera.aspect;
+    W = hw * 1.7; H = Math.min(hh * 1.5, W * 0.8);
+    const nx = Math.round(W / 0.4), ny = Math.round(H / (W / nx));
+    CELL = W / nx; H = ny * CELL;
+    O.set(-W / 2, -H / 2 - 0.2, 0);
+    const g = [];
+    for (let k = 0; k <= nx; k++) g.push(O.x + k * CELL, O.y, 0, O.x + k * CELL, O.y + H, 0);
+    for (let k = 0; k <= ny; k++) g.push(O.x, O.y + k * CELL, 0, O.x + W, O.y + k * CELL, 0);
+    grid.geometry.setAttribute("position", new THREE.Float32BufferAttribute(g, 3));
+    axes.geometry.setAttribute("position", new THREE.Float32BufferAttribute([...O, O.x + W, O.y, 0, ...O, O.x, O.y + H, 0, ...O, O.x, O.y, 2], 3));
+    const b = [];
+    for (let j = 0; j < BELL; j++) { const xr = (W * j) / (BELL - 1); b.push(O.x + xr, O.y + curveY(xr), 0); }
+    bell.geometry.setAttribute("position", new THREE.Float32BufferAttribute(b, 3));
   }
 
   function resize() {
-    const w = innerWidth, h = innerHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
+    renderer.setSize(innerWidth, innerHeight, false);
+    camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
-    wide = w > 900;
+    wide = innerWidth > 900;
     layout();
   }
   addEventListener("resize", resize);
   resize();
 
-  // one cell along x or y, chosen per dot and per hop
-  const hop = (i, seg) => {
-    const d = Math.floor((Math.abs(Math.sin(i * 12.9898 + seg * 78.233) * 43758.5453) % 1) * 4);
-    return [d === 0 ? 1 : d === 1 ? -1 : 0, d === 2 ? 1 : d === 3 ? -1 : 0];
-  };
-  // the dot's own movement in a formation, written into o (amplitude 1)
-  function move(mode, i, t, x, y, o) {
-    const a = rnd[i * 3] * 3.14, b = rnd[i * 3 + 1] * 3.14;
-    if (mode === 0) { // walk the grid: out along a grid line to the next node, back, then another line
-      const u = t * 0.5 + delay[i] * 4, seg = Math.floor(u), f = u - seg, [dx, dy] = hop(i, seg);
-      const out = ease(clamp01(f * 3)) - ease(clamp01(f * 3 - 1.5));
-      o[0] = dx * out; o[1] = dy * out; o[2] = 0;
-    } else if (mode === 1) { o[0] = 0; o[1] = Math.sin(x * 2.2 - t * 1.8); o[2] = Math.cos(x * 2.2 - t * 1.8) * 0.5; }
-    else if (mode === 2) { o[0] = Math.cos(t * 1.4 + a); o[1] = Math.sin(t * 1.4 + a); o[2] = 0; }
-    else if (mode === 3) { o[0] = Math.sin(y * 2.5 + t * 0.9); o[1] = Math.cos(x * 2.5 + t * 0.9); o[2] = 0; }
-    else { o[0] = Math.sin(t * 0.9 + a) * Math.cos(t * 0.37 + b); o[1] = Math.sin(t * 0.7 + b) * Math.cos(t * 0.41 + a); o[2] = Math.sin(t * 0.5 + a); }
-  }
-  const amp = k => (k === 0 ? GRID : 0.012); // the scatter roams, the names only shimmer
-
-  const clock = new THREE.Clock(), oa = [0, 0, 0], ob = [0, 0, 0];
-  const mouse = new THREE.Vector2(9, 9), look = new THREE.Vector2(), ZERO = new THREE.Vector2();
-  let shown = 0;
+  const clock = new THREE.Clock(), look = new THREE.Vector2(), aim = new THREE.Vector2(9, 9), ZERO = new THREE.Vector2(), b3 = [0, 0, 0];
+  let shown = 0, angle = 0.5, target = null; // target: the cursor's angle from the origin, null without a cursor
 
   function frame() {
     requestAnimationFrame(frame);
-    const dt = Math.min(0.1, clock.getDelta()), t = reduced ? 0 : clock.elapsedTime;
-    shown = reduced ? stage : shown + (stage - shown) * (1 - Math.exp(-dt * 4));
-    const k = Math.min(targets.length - 2, Math.floor(shown)), f = shown - k, a = targets[k], b = targets[k + 1];
+    const dt = Math.min(0.1, clock.getDelta()), t = reduced ? 0 : clock.elapsedTime, k = 1 - Math.exp(-dt * 4);
 
-    // the hero scatter sits under the headline, the later sections are text-heavy: both get quieter dots
-    dots.material.opacity = (1 - 0.25 * clamp01(1 - shown) - 0.62 * clamp01(shown - stepEls.length)) * (wide ? 1 : 0.45);
-    grid.material.opacity = 1 - clamp01(shown - stepEls.length);
-    if (!reduced) {
-      look.lerp(mouse.x < 9 ? mouse : ZERO, 0.04);
-      group.rotation.y = Math.sin(t * 0.15) * 0.12 + look.x * 0.15;
-      group.rotation.x = -look.y * 0.06;
-    }
+    // scroll draws the bell curve: complete at the bottom of the page
+    const progress = clamp01(scrollY / Math.max(1, document.documentElement.scrollHeight - innerHeight));
+    shown = reduced ? progress : shown + (progress - shown) * k;
+    bell.geometry.setDrawRange(0, Math.max(2, Math.round(shown * BELL)));
+    const front = shown * W * 1.1 - W * 0.05;
+
+    // the regression line turns toward the cursor; without one it sways on its own
+    const want = target ?? (reduced ? 0.5 : 0.55 + Math.sin(t * 0.35) * 0.35);
+    angle += (want - angle) * (reduced ? 1 : 1 - Math.exp(-dt * 6));
+    const cx = Math.cos(angle), sy = Math.sin(angle), L = Math.min(W / Math.max(cx, 1e-3), H / Math.max(sy, 1e-3));
+    fit.geometry.attributes.position.setXYZ(0, O.x, O.y, 0);
+    fit.geometry.attributes.position.setXYZ(1, O.x + cx * L, O.y + sy * L, 0);
+    fit.geometry.attributes.position.needsUpdate = true;
+
+    // the camera drifts and leans toward the mouse, so the grid reads as 3D
+    if (!reduced) look.lerp(aim.x < 9 ? aim : ZERO, 0.04);
+    camera.position.set(0.9 + Math.sin(t * 0.21) * 0.7 + look.x * 0.8, 0.5 + Math.cos(t * 0.17) * 0.4 + look.y * 0.5, CAM_Z);
+    camera.lookAt(0, -0.2, 0);
+    dots.material.opacity = wide ? 0.95 : 0.55;
 
     for (let i = 0; i < N; i++) {
-      const lt = ease(clamp01((f - delay[i] * 0.3) / 0.7));
-      const x = a[i * 3] + (b[i * 3] - a[i * 3]) * lt, y = a[i * 3 + 1] + (b[i * 3 + 1] - a[i * 3 + 1]) * lt;
-      move(MODES[k], i, t, x, y, oa);
-      move(MODES[k + 1], i, t, x, y, ob);
-      const s0 = amp(k) * (1 - lt), s1 = amp(k + 1) * lt;
-      for (let j = 0; j < 3; j++) {
-        const o = i * 3 + j;
-        vel[o] = vel[o] * 0.88 - push[o] * 0.06; // spring back after a click
-        push[o] += vel[o];
-        pos[o] = a[o] + (b[o] - a[o]) * lt + oa[j] * s0 + ob[j] * s1 + push[o];
+      const h = i * 3;
+      let x, y, zz;
+      if (i < NB) {
+        const xr = W / 2 + bx[i] * (W / 7), on = ease(clamp01((front - xr) / (W * 0.08)));
+        // waiting dots roam the grid in a flow field; reached dots pile up on the curve, spread along z
+        const hx = home[h] * W, hy = home[h + 1] * H, ph = home[h + 2] * 6.28;
+        const dx = O.x + hx + Math.sin(hy * 1.7 + t * 0.7 + ph) * 0.55, dy = O.y + hy + Math.cos(hx * 1.3 + t * 0.6) * 0.45;
+        const dz = (home[h + 2] - 0.5) * 3 + Math.sin(t * 0.8 + ph) * 0.5;
+        x = dx + (O.x + xr - dx) * on;
+        y = dy + (O.y + curveY(xr) - dy) * on;
+        zz = dz + (z[i] * 0.55 + Math.sin(t * 1.3 + ph) * 0.08 - dz) * on;
+      } else {
+        // around the line: along it by u, off it by a normal residual, and some depth
+        const r = i - NB, d = ru[r] * L, n = rn[r] * 0.22 + Math.sin(t * 1.1 + r) * 0.04;
+        const tx = O.x + cx * d - sy * n, ty = O.y + sy * d + cx * n, tz = z[i] * 0.4 + Math.cos(t * 0.9 + r) * 0.1;
+        const f = reduced ? 1 : 1 - Math.exp(-dt * rate[r]); // each dot lags a little, so the cloud trails the line
+        x = (pos[h] - push[h]) + (tx - (pos[h] - push[h])) * f;
+        y = (pos[h + 1] - push[h + 1]) + (ty - (pos[h + 1] - push[h + 1])) * f;
+        zz = (pos[h + 2] - push[h + 2]) + (tz - (pos[h + 2] - push[h + 2])) * f;
       }
-      dots.setMatrixAt(i, m.compose(p.fromArray(pos, i * 3), q, one));
+      b3[0] = x; b3[1] = y; b3[2] = zz;
+      for (let j = 0; j < 3; j++) {
+        vel[h + j] = vel[h + j] * 0.88 - push[h + j] * 0.06; // spring back after a click
+        push[h + j] += vel[h + j];
+        pos[h + j] = b3[j] + push[h + j];
+      }
+      dots.setMatrixAt(i, m.compose(p.fromArray(pos, h), q, one));
     }
     dots.instanceMatrix.needsUpdate = true;
     renderer.render(scene, camera);
   }
   requestAnimationFrame(frame);
 
+  /* the cursor on the grid: it steers the line, and the readout shows where it is and the fit */
+  const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), hit = new THREE.Vector3();
+  const box = document.getElementById("cross"), label = box.querySelector("b");
+  const onGrid = e => {
+    aim.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    ray.setFromCamera(aim, camera);
+    return ray.ray.intersectPlane(plane, hit);
+  };
+  addEventListener("pointermove", e => {
+    if (!onGrid(e)) return;
+    target = Math.max(0.03, Math.min(1.54, Math.atan2(hit.y - O.y, hit.x - O.x))); // stay in the first quadrant
+    if (e.pointerType !== "mouse") return;
+    const gx = (hit.x - O.x) / CELL, gy = (hit.y - O.y) / CELL;
+    label.textContent = `x ${gx.toFixed(1)}, y ${gy.toFixed(1)}\nŷ = ${Math.tan(target).toFixed(2)}x`;
+    box.style.setProperty("--x", e.clientX + "px");
+    box.style.setProperty("--y", e.clientY + "px");
+    box.classList.toggle("flip", e.clientX > innerWidth - 160); // keep the label on screen
+    box.hidden = false;
+  }, { passive: true });
+  document.documentElement.addEventListener("pointerleave", () => { box.hidden = true; target = null; aim.set(9, 9); });
+
   /* click: a ripple pushes nearby dots away, then they spring back */
-  const ray = new THREE.Raycaster();
-  const toNdc = e => mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-  addEventListener("pointermove", toNdc, { passive: true });
-  document.documentElement.addEventListener("pointerleave", () => mouse.set(9, 9));
   canvas.addEventListener("pointerdown", e => {
-    if (reduced) return;
-    ray.setFromCamera(toNdc(e), camera);
-    const local = group.worldToLocal(ray.ray.at(camera.position.length(), new THREE.Vector3()));
+    if (reduced || !onGrid(e)) return;
     for (let i = 0; i < N; i++) {
-      const dx = pos[i * 3] - local.x, dy = pos[i * 3 + 1] - local.y, dz = pos[i * 3 + 2] - local.z;
+      const dx = pos[i * 3] - hit.x, dy = pos[i * 3 + 1] - hit.y, dz = pos[i * 3 + 2] - hit.z;
       const d = Math.hypot(dx, dy, dz);
-      if (d < 1.4) {
-        const s = (1.4 - d) * 0.09 / (d || 1);
+      if (d < 1.2) {
+        const s = (1.2 - d) * 0.09 / (d || 1);
         vel[i * 3] += dx * s; vel[i * 3 + 1] += dy * s; vel[i * 3 + 2] += dz * s;
       }
     }
   });
-}
-
-/* ---------- the grid readout: the nearest grid node and its coordinates follow the mouse ---------- */
-
-function gridReadout() {
-  const box = document.getElementById("cross"), label = box.querySelector("b"), STEP = 48; // the body's grid
-  if (!matchMedia("(pointer: fine)").matches) return box.remove();
-  let last = null;
-  const place = () => {
-    const gx = Math.round(last.clientX / STEP), gy = Math.round((last.clientY + scrollY) / STEP);
-    box.style.setProperty("--x", gx * STEP + "px");
-    box.style.setProperty("--y", gy * STEP - scrollY + "px");
-    label.textContent = `x ${gx}, y ${gy}`;
-    box.classList.toggle("flip", gx * STEP > innerWidth - 140); // keep the label on screen
-    box.hidden = false;
-  };
-  addEventListener("pointermove", e => { if (e.pointerType === "mouse") { last = e; place(); } }, { passive: true });
-  addEventListener("scroll", () => last && place(), { passive: true });
-  document.documentElement.addEventListener("pointerleave", () => { box.hidden = true; last = null; });
 }
 
 /* ---------- page interactions ---------- */
@@ -435,7 +400,6 @@ function reviews() {
 steps();
 tabs();
 buttons();
-gridReadout();
 reviews();
 startScene();
 </script>

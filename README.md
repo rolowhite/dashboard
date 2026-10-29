@@ -5,19 +5,22 @@ and reading or writing reviews. No build step.
 
 * `index.html` (with its script inline) and `style.css`: the page. three.js comes from jsDelivr (pinned to 0.160.0).
 * `assets/`: four screenshots from the app repo.
-* The background is a 3D scatter of 3,600 dots. On each section it regroups into a model name
-  (`MODELS` in the script in `index.html`) and moves in its own way (`MODES`: walk the grid, wave, orbit, flow field, drift).
-  Moving the mouse shows the coordinates of the nearest grid node; clicking pushes the dots apart.
+* The background is a 3D grid with its origin (0, 0, 0) at the bottom left, and 3,900 grey points:
+  * A coral line from the origin follows the mouse as a regression line; 900 points sit around it as its
+    residuals and trail it as it turns. The label by the cursor shows the grid coordinates and the fit.
+  * Scrolling draws a bell curve from left to right, complete at the bottom of the page. The other 3,000
+    points roam the grid until the curve reaches them, then pile up on it, spread along z.
+  * Clicking pushes the points apart.
 
 ## Run it locally
 
-The page loads JavaScript modules, so open it through a server, not as a file:
+Double-click `index.html`, or serve the folder:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-Then open http://localhost:8000.
+Then open http://localhost:8000. It needs the internet for three.js and the fonts.
 
 ## Publish it
 
